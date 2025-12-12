@@ -98,6 +98,10 @@ if __name__ == "__main__":
             io.log_info ("Performing faceset unpacking...\r\n")
             from samplelib import PackedFaceset
             PackedFaceset.unpack( Path(arguments.input_dir) )
+            
+        if arguments.export_faceset_mask:
+            io.log_info ("Exporting faceset mask..\r\n")
+            Util.export_faceset_mask( Path(arguments.input_dir) )
 
     p = subparsers.add_parser( "util", help="Utilities.")
     p.add_argument('--input-dir', required=True, action=fixPathAction, dest="input_dir", help="Input directory. A directory containing the files you wish to process.")
@@ -107,6 +111,7 @@ if __name__ == "__main__":
     p.add_argument('--restore-faceset-metadata', action="store_true", dest="restore_faceset_metadata", default=False, help="Restore faceset metadata to file. Image filenames must be the same as used with save.")
     p.add_argument('--pack-faceset', action="store_true", dest="pack_faceset", default=False, help="")
     p.add_argument('--unpack-faceset', action="store_true", dest="unpack_faceset", default=False, help="")
+    p.add_argument('--export-faceset-mask', action="store_true", dest="export_faceset_mask", default=False, help="")
 
     p.set_defaults (func=process_util)
 
@@ -127,7 +132,6 @@ if __name__ == "__main__":
                   'silent_start'             : arguments.silent_start,
                   'execute_programs'         : [ [int(x[0]), x[1] ] for x in arguments.execute_program ],
                   'debug'                    : arguments.debug,
-                  'dump_ckpt'                : arguments.dump_ckpt,
                   }
         from mainscripts import Trainer
         Trainer.main(**kwargs)
@@ -145,11 +149,19 @@ if __name__ == "__main__":
     p.add_argument('--cpu-only', action="store_true", dest="cpu_only", default=False, help="Train on CPU.")
     p.add_argument('--force-gpu-idxs', dest="force_gpu_idxs", default=None, help="Force to choose GPU indexes separated by comma.")
     p.add_argument('--silent-start', action="store_true", dest="silent_start", default=False, help="Silent start. Automatically chooses Best GPU and last used model.")
-    p.add_argument('--dump-ckpt', action="store_true", dest="dump_ckpt", default=False, help="Dump the model to ckpt format.")
-    
     
     p.add_argument('--execute-program', dest="execute_program", default=[], action='append', nargs='+')
     p.set_defaults (func=process_train)
+    
+    def process_exportdfm(arguments):
+        osex.set_process_lowest_prio()
+        from mainscripts import ExportDFM
+        ExportDFM.main(model_class_name = arguments.model_name, saved_models_path = Path(arguments.model_dir))
+
+    p = subparsers.add_parser( "exportdfm", help="Export model to use in DeepFaceLive.")
+    p.add_argument('--model-dir', required=True, action=fixPathAction, dest="model_dir", help="Saved models dir.")
+    p.add_argument('--model', required=True, dest="model_name", choices=pathex.get_all_dir_names_startswith ( Path(__file__).parent / 'models' , 'Model_'), help="Model class name.")
+    p.set_defaults (func=process_exportdfm)
 
     def process_merge(arguments):
         osex.set_process_lowest_prio()
@@ -264,11 +276,11 @@ if __name__ == "__main__":
         from mainscripts import FacesetResizer
         FacesetResizer.process_folder ( Path(arguments.input_dir) )
     p.set_defaults(func=process_faceset_resizer)
-    
+
     def process_dev_test(arguments):
         osex.set_process_lowest_prio()
         from mainscripts import dev_misc
-        dev_misc.dev_test( arguments.input_dir )
+        dev_misc.dev_gen_mask_files( arguments.input_dir )
 
     p = subparsers.add_parser( "dev_test", help="")
     p.add_argument('--input-dir', required=True, action=fixPathAction, dest="input_dir")
